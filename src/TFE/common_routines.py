@@ -2,6 +2,7 @@ import numpy as np
 from gtda.diagrams import Scaler, Filtering, PersistenceEntropy
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
+from torch import nn
 
 from .base import PersistenceDiagramFeatureExtractor
 
@@ -9,8 +10,8 @@ from .base import PersistenceDiagramFeatureExtractor
 class PersistenceDiagramsExtractor:
     def __init__(self, takens_embedding_dim, takens_embedding_delay, homology_dimensions,
                  filtering=False, filtering_dimensions=(1, 2)):
-        self.takens_embedding_dim_ = takens_embedding_dim
-        self.takens_embedding_delay_ = takens_embedding_delay
+        self.tokens_embedding_dim_ = takens_embedding_dim
+        self.tokens_embedding_delay_ = takens_embedding_delay
         self.homology_dimensions_ = homology_dimensions
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
@@ -19,8 +20,8 @@ class PersistenceDiagramsExtractor:
         X_transformed = list()
         for series in X:
             te = TakensEmbedding(parameters_type='search',
-                                 dimension=self.takens_embedding_dim_,
-                                 time_delay=self.takens_embedding_delay_)
+                                 dimension=self.tokens_embedding_dim_,
+                                 time_delay=self.tokens_embedding_delay_)
             X_transformed.append(te.fit_transform(series))
         return X_transformed
 
