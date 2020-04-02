@@ -15,7 +15,7 @@ class PersistenceDiagramsExtractor:
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
 
-    def tokens_embeddings_(self, X):
+    def takens_embeddings_(self, X):
         X_transformed = list()
         for series in X:
             te = TakensEmbedding(parameters_type='search',
@@ -28,7 +28,6 @@ class PersistenceDiagramsExtractor:
         X_transformed = list()
         for embedding in X_embdeddings:
             vr = VietorisRipsPersistence(metric='euclidean',
-                                         max_edge_length=100,
                                          homology_dimensions=self.homology_dimensions_)
             diagram_scaler = Scaler()
             persistence_diagrams = diagram_scaler.fit_transform(vr.fit_transform([embedding]))
@@ -39,7 +38,7 @@ class PersistenceDiagramsExtractor:
         return X_transformed
 
     def fit_transform(self, X):
-        X_embeddings = self.tokens_embeddings_(X)
+        X_embeddings = self.takens_embeddings_(X)
         X_persistence_diagrams = self.persistence_diagrams_(X_embeddings)
         return X_persistence_diagrams
 
@@ -92,7 +91,7 @@ class MaxHoleLifeTimeFeature(PersistenceDiagramFeatureExtractor):
 
 
 class RelevantHolesNumber(PersistenceDiagramFeatureExtractor):
-    def __init__(self, ratio=1.0):
+    def __init__(self, ratio=0.7):
         super(RelevantHolesNumber).__init__()
         self.ratio_ = ratio
 
