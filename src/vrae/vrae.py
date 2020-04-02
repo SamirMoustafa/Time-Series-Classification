@@ -6,6 +6,8 @@ from torch import nn, optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
+# Variational Recurrent Auto-Encoders
+# https://arxiv.org/abs/1412.6581
 
 class Encoder(nn.Module):
     """
