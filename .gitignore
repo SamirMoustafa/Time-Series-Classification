@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+Univariate2018_arff.zip
+Univariate_arff/
