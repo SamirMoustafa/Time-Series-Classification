@@ -66,7 +66,7 @@ def one_hot_encoding(x, dtype=float):
     return np.eye(int(n), dtype=dtype)[x]
 
 
-get_device = lambda: torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+get_device = lambda: torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
 
 
 class TimeSeriesDataset(Dataset):
@@ -87,28 +87,26 @@ class TimeSeriesDataset(Dataset):
 
 def train_AE(epochs, net, criterion, optimizer, train_loader, val_loader, scheduler=None, verbose=True, save_dir=None):
     net.to(get_device())
+    train_loss_sum = list()
+    val_loss_sum = list()
+
     for epoch in range(1, epochs + 1):
         net.train()
         for X, _ in train_loader:
-            # Perform one step of minibatch stochastic gradient descent
 
-            # >>> your solution here <<<
             optimizer.zero_grad()
             output = net(X)
             loss = criterion(output, X)
+            train_loss_sum.append(loss.item())
             loss.backward()
             optimizer.step()
 
-        # define NN evaluation, i.e. turn off dropouts, batchnorms, etc.
         net.eval()
         best_val_loss = np.inf
         for X, _ in val_loader:
-            # Compute the validation loss
-
-            # >>> your solution here <<<
             output = net(X)
             val_loss = criterion(output, X)
-
+            val_loss_sum.append(val_loss.item())
             if best_val_loss >= val_loss.item() and save_dir:
                 best_val_loss = val_loss.item()
                 torch.save(net.state_dict(), save_dir)
@@ -119,46 +117,50 @@ def train_AE(epochs, net, criterion, optimizer, train_loader, val_loader, schedu
         if verbose and epoch % freq == 0:
             print('Epoch {}/{} ||\t Loss:  Train {:.4f} | Validation {:.4f}'.format(epoch,
                                                                                   epochs,
-                                                                                  loss.item(),
-                                                                                  val_loss.item()))
+                                                                                  sum(train_loss_sum),
+                                                                                  sum(val_loss_sum)))
 
 
 def train_clf(epochs, net, criterion, optimizer, train_loader, val_loader, scheduler=None, verbose=True, save_dir=None):
     net.to(get_device())
+    best_model = None
+
     for epoch in range(1, epochs + 1):
+
+        train_loss_sum = list()
+        val_loss_sum = list()
+
         net.train()
         for X, y in train_loader:
-            # Perform one step of minibatch stochastic gradient descent
-
-            # >>> your solution here <<<
             optimizer.zero_grad()
             output = net(X)
             loss = criterion(output, y)
+            train_loss_sum.append(loss.item())
             loss.backward()
             optimizer.step()
 
-        # define NN evaluation, i.e. turn off dropouts, batchnorms, etc.
         net.eval()
         best_val_loss = np.inf
         for X, y in val_loader:
-            # Compute the validation loss
-
-            # >>> your solution here <<<
             output = net(X)
             val_loss = criterion(output, y)
+            val_loss_sum.append(val_loss.item())
 
-            if best_val_loss >= val_loss.item() and save_dir:
+            if best_val_loss >= val_loss.item():
                 best_val_loss = val_loss.item()
-                torch.save(net.state_dict(), save_dir)
+                best_model = net
+                if  save_dir:
+                    torch.save(net.state_dict(), save_dir)
 
         if scheduler is not None:
             scheduler.step()
         freq = max(epochs // 20, 1)
         if verbose and epoch % freq == 0:
             print('Epoch {}/{} ||\t Loss:  Train {:.4f} | Validation {:.4f}'.format(epoch,
-                                                                                  epochs,
-                                                                                  loss.item(),
-                                                                                  val_loss.item()))
+                                                                                    epochs,
+                                                                                    sum(train_loss_sum),
+                                                                                    sum(val_loss_sum)))
+    return best_model
 
 
 def plot_clustering(z_run, labels, engine='plotly', download=False, folder_name='clustering'):
