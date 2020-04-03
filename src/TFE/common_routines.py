@@ -27,6 +27,7 @@ class PersistenceDiagramsExtractor:
 
     def persistence_diagrams_(self, X_embdeddings):
         X_transformed = list()
+        # TODO: apply parallelism here
         for embedding in X_embdeddings:
             vr = VietorisRipsPersistence(metric='euclidean',
                                          homology_dimensions=self.homology_dimensions_)
