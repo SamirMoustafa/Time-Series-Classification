@@ -1,3 +1,6 @@
+import time
+from multiprocessing.dummy import Pool as ThreadPool
+
 import numpy as np
 
 from gtda.diagrams import Scaler, Filtering, PersistenceEntropy
@@ -26,18 +29,21 @@ class PersistenceDiagramsExtractor:
         return X_transformed
 
     def persistence_diagrams_(self, X_embdeddings):
-        X_transformed = list()
-        # TODO: apply parallelism here
-        for embedding in X_embdeddings:
-            vr = VietorisRipsPersistence(metric='euclidean',
-                                         homology_dimensions=self.homology_dimensions_)
-            diagram_scaler = Scaler()
-            persistence_diagrams = diagram_scaler.fit_transform(vr.fit_transform([embedding]))
-            if self.filtering_:
-                diagram_filter = Filtering(epsilon=0.1, homology_dimensions=self.filtering_dimensions_)
-                persistence_diagrams = diagram_filter.fit_transform(persistence_diagrams)
-            X_transformed.append(persistence_diagrams[0])
+        pool = ThreadPool()
+
+        X_transformed = pool.map(self.parallel_embed, X_embdeddings)
+        pool.close()
+        pool.join()
         return X_transformed
+
+    def parallel_embed(self, embedding):
+        vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_, n_jobs=-1)
+        diagram_scaler = Scaler(n_jobs=-1)
+        persistence_diagrams = diagram_scaler.fit_transform(vr.fit_transform([embedding]))
+        if self.filtering_:
+            diagram_filter = Filtering(epsilon=0.1, homology_dimensions=self.filtering_dimensions_)
+            persistence_diagrams = diagram_filter.fit_transform(persistence_diagrams)
+        return persistence_diagrams[0]
 
     def fit_transform(self, X):
         X_embeddings = self.tokens_embeddings_(X)
@@ -52,13 +58,13 @@ class TopologicalFeaturesExtractor:
 
     def fit_transform(self, X):
         X_transformed = None
-
+        
         X_pd = self.persistence_diagram_extractor_.fit_transform(X)
 
         for pd_feature in self.persistence_diagram_features_:
             X_features = pd_feature.fit_transform(X_pd)
             X_transformed = np.vstack((X_transformed.T, X_features.T)).T if X_transformed is not None else X_features
-
+        
         return X_transformed
 
 
@@ -199,7 +205,6 @@ class SimultaneousAliveHolesFeatue(PersistenceDiagramFeatureExtractor):
                 feature[dim] = self.get_average_simultaneous_holes_(np.array(holes))
 
         return feature
-
 
 
 if __name__ == '__main__':

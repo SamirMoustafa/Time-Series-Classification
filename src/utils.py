@@ -11,7 +11,7 @@ from sklearn.manifold import TSNE
 import torch
 from torch.utils.data import Dataset
 
-DATA_PATH = './../../Univariate_arff/'
+DATA_PATH = './Univariate_arff/'
 
 
 def readucr(filename):
