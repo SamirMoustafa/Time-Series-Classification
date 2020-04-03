@@ -1,22 +1,22 @@
 import numpy as np
+
 from gtda.diagrams import Scaler, Filtering, PersistenceEntropy
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
-from torch import nn
 
-from .base import PersistenceDiagramFeatureExtractor
+from src.TFE.base import PersistenceDiagramFeatureExtractor
 
 
 class PersistenceDiagramsExtractor:
-    def __init__(self, takens_embedding_dim, takens_embedding_delay, homology_dimensions,
+    def __init__(self, tokens_embedding_dim, tokens_embedding_delay, homology_dimensions,
                  filtering=False, filtering_dimensions=(1, 2)):
-        self.tokens_embedding_dim_ = takens_embedding_dim
-        self.tokens_embedding_delay_ = takens_embedding_delay
+        self.tokens_embedding_dim_ = tokens_embedding_dim
+        self.tokens_embedding_delay_ = tokens_embedding_delay
         self.homology_dimensions_ = homology_dimensions
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
 
-    def takens_embeddings_(self, X):
+    def tokens_embeddings_(self, X):
         X_transformed = list()
         for series in X:
             te = TakensEmbedding(parameters_type='search',
@@ -39,7 +39,7 @@ class PersistenceDiagramsExtractor:
         return X_transformed
 
     def fit_transform(self, X):
-        X_embeddings = self.takens_embeddings_(X)
+        X_embeddings = self.tokens_embeddings_(X)
         X_persistence_diagrams = self.persistence_diagrams_(X_embeddings)
         return X_persistence_diagrams
 
@@ -198,3 +198,34 @@ class SimultaneousAliveHolesFeatue(PersistenceDiagramFeatureExtractor):
                 feature[dim] = self.get_average_simultaneous_holes_(np.array(holes))
 
         return feature
+
+
+
+if __name__ == '__main__':
+    from src.utils import get_data_from_directory, get_files_directory_list
+
+    directory_list = get_files_directory_list()
+    directory_list = sorted(directory_list)
+
+    random_index = 15  # 6 # 5
+    random_path = directory_list[random_index]
+    X_train, X_test, y_train, y_test = get_data_from_directory(random_path)
+    X_train = X_train.squeeze()
+    y_train = y_train.squeeze()
+    X_test = X_test.squeeze()
+    y_test = y_test.squeeze()
+
+    feature_extractor = TopologicalFeaturesExtractor(
+        persistence_diagram_extractor=PersistenceDiagramsExtractor(tokens_embedding_dim=3,
+                                                                   tokens_embedding_delay=10,
+                                                                   homology_dimensions=(0, 1, 2)),
+        persistence_diagram_features=[HolesNumberFeature(),
+                                      MaxHoleLifeTimeFeature(),
+                                      RelevantHolesNumber(),
+                                      AverageHoleLifetimeFeature(),
+                                      SumHoleLifetimeFeature(),
+                                      PersistenceEntropyFeature(),
+                                      SimultaneousAliveHolesFeatue()])
+
+    X_train_transformed = feature_extractor.fit_transform(X_train)
+    X_test_transformed = feature_extractor.fit_transform(X_test)
