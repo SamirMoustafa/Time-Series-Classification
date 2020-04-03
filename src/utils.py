@@ -8,6 +8,9 @@ import plotly.graph_objects as go
 from sklearn.decomposition import TruncatedSVD
 from sklearn.manifold import TSNE
 
+import torch
+from torch.utils.data import Dataset
+
 DATA_PATH = './Univariate_arff/'
 
 
@@ -44,7 +47,8 @@ def get_data_from_directory(fname, split=True):
     x_train, y_train = readucr(train_file_path)
     x_test, y_test = readucr(test_file_path)
 
-    x_train, x_test, y_train, y_test = x_train[..., np.newaxis], x_test[..., np.newaxis], y_train[..., np.newaxis], y_test[..., np.newaxis]
+    x_train, x_test, y_train, y_test = x_train[..., np.newaxis], x_test[..., np.newaxis], y_train[..., np.newaxis], \
+                                       y_test[..., np.newaxis]
 
     if split:
         return x_train, x_test, y_train, y_test
@@ -54,6 +58,107 @@ def get_data_from_directory(fname, split=True):
         x = np.concatenate([x_train, x_test])
         y = np.concatenate([y_train, y_test])
         return x, y
+
+
+def one_hot_encoding(x, dtype=float):
+    x = np.asarray(x).astype(int) - 1
+    n = np.unique(x).shape[0]
+    return np.eye(int(n), dtype=dtype)[x]
+
+
+get_device = lambda: torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+class TimeSeriesDataset(Dataset):
+    def __init__(self, X, y, device=None, ):
+        super(TimeSeriesDataset, self).__init__()
+
+        self.X = torch.tensor(X, dtype=torch.float32)
+        self.y = torch.tensor(y, dtype=torch.float32)
+
+        self.device = get_device()
+
+    def __len__(self):
+        return self.X.shape[0]
+
+    def __getitem__(self, idx):
+        return self.X[idx].to(self.device), self.y[idx].to(self.device)
+
+
+def train_AE(epochs, net, criterion, optimizer, train_loader, val_loader, scheduler=None, verbose=True, save_dir=None):
+    net.to(get_device())
+    for epoch in range(1, epochs + 1):
+        net.train()
+        for X, _ in train_loader:
+            # Perform one step of minibatch stochastic gradient descent
+
+            # >>> your solution here <<<
+            optimizer.zero_grad()
+            output = net(X)
+            loss = criterion(output, X)
+            loss.backward()
+            optimizer.step()
+
+        # define NN evaluation, i.e. turn off dropouts, batchnorms, etc.
+        net.eval()
+        best_val_loss = np.inf
+        for X, _ in val_loader:
+            # Compute the validation loss
+
+            # >>> your solution here <<<
+            output = net(X)
+            val_loss = criterion(output, X)
+
+            if best_val_loss >= val_loss.item() and save_dir:
+                best_val_loss = val_loss.item()
+                torch.save(net.state_dict(), save_dir)
+
+        if scheduler is not None:
+            scheduler.step()
+        freq = max(epochs // 20, 1)
+        if verbose and epoch % freq == 0:
+            print('Epoch {}/{} ||\t Loss:  Train {:.4f} | Validation {:.4f}'.format(epoch,
+                                                                                  epochs,
+                                                                                  loss.item(),
+                                                                                  val_loss.item()))
+
+
+def train_clf(epochs, net, criterion, optimizer, train_loader, val_loader, scheduler=None, verbose=True, save_dir=None):
+    net.to(get_device())
+    for epoch in range(1, epochs + 1):
+        net.train()
+        for X, y in train_loader:
+            # Perform one step of minibatch stochastic gradient descent
+
+            # >>> your solution here <<<
+            optimizer.zero_grad()
+            output = net(X)
+            loss = criterion(output, y)
+            loss.backward()
+            optimizer.step()
+
+        # define NN evaluation, i.e. turn off dropouts, batchnorms, etc.
+        net.eval()
+        best_val_loss = np.inf
+        for X, y in val_loader:
+            # Compute the validation loss
+
+            # >>> your solution here <<<
+            output = net(X)
+            val_loss = criterion(output, y)
+
+            if best_val_loss >= val_loss.item() and save_dir:
+                best_val_loss = val_loss.item()
+                torch.save(net.state_dict(), save_dir)
+
+        if scheduler is not None:
+            scheduler.step()
+        freq = max(epochs // 20, 1)
+        if verbose and epoch % freq == 0:
+            print('Epoch {}/{} ||\t Loss:  Train {:.4f} | Validation {:.4f}'.format(epoch,
+                                                                                  epochs,
+                                                                                  loss.item(),
+                                                                                  val_loss.item()))
 
 
 def plot_clustering(z_run, labels, engine='plotly', download=False, folder_name='clustering'):
