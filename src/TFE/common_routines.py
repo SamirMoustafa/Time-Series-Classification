@@ -3,7 +3,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 import numpy as np
 
-from gtda.diagrams import Scaler, Filtering, PersistenceEntropy
+from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLandscape
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
 
@@ -211,4 +211,13 @@ class SimultaneousAliveHolesFeatue(PersistenceDiagramFeatureExtractor):
                 feature[dim] = self.get_average_simultaneous_holes_(np.array(holes))
 
         return feature
+    
 
+class AveragePersistenceLandscapeFeature(PersistenceDiagramFeatureExtractor):
+    def __init__(self):
+        super(AveragePersistenceLandscapeFeature).__init__()
+
+    def extract_feature_(self, persistence_diagram):
+        # As practice shows, only 1st layer of 1st homology dimension plays role
+        persistence_landscape = PersistenceLandscape().fit_transform([persistence_diagram])[0, 1, 0, :]
+        return np.array([np.sum(persistence_landscape) / persistence_landscape.shape[0]])
