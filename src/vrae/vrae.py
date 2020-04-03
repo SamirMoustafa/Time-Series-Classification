@@ -6,6 +6,8 @@ from torch import nn, optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
+from src.utils import get_device
+
 # Variational Recurrent Auto-Encoders
 # https://arxiv.org/abs/1412.6581
 
@@ -30,6 +32,7 @@ class Encoder(nn.Module):
         self.hidden_layer_depth = hidden_layer_depth
         self.latent_length = latent_length
         self.block = block
+
 
         if block == 'LSTM':
             self.model = nn.LSTM(self.number_of_features, self.hidden_size, self.hidden_layer_depth, dropout=dropout)
@@ -68,6 +71,7 @@ class Lambda(nn.Module):
         self.hidden_size = hidden_size
         self.latent_length = latent_length
 
+
         self.hidden_to_mean = nn.Linear(self.hidden_size, self.latent_length)
         self.hidden_to_logvar = nn.Linear(self.hidden_size, self.latent_length)
 
@@ -102,11 +106,9 @@ class Decoder(nn.Module):
     :param latent_length: latent vector length
     :param output_size: 2, one representing the mean, other log std dev of the output
     :param block: GRU/LSTM - use the same which you've used in the encoder
-    :param dtype: Depending on cuda enabled/disabled, create the tensor
     """
 
-    def __init__(self, sequence_length, batch_size, hidden_size, hidden_layer_depth, latent_length, output_size, dtype,
-                 block='LSTM'):
+    def __init__(self, sequence_length, batch_size, hidden_size, hidden_layer_depth, latent_length, output_size, block='LSTM'):
 
         super(Decoder, self).__init__()
 
@@ -116,7 +118,7 @@ class Decoder(nn.Module):
         self.hidden_layer_depth = hidden_layer_depth
         self.latent_length = latent_length
         self.output_size = output_size
-        self.dtype = dtype
+
 
         if block == 'LSTM':
             self.model = nn.LSTM(1, self.hidden_size, self.hidden_layer_depth)
@@ -128,9 +130,8 @@ class Decoder(nn.Module):
         self.latent_to_hidden = nn.Linear(self.latent_length, self.hidden_size)
         self.hidden_to_output = nn.Linear(self.hidden_size, self.output_size)
 
-        self.decoder_inputs = torch.zeros(self.sequence_length, self.batch_size, 1, requires_grad=True).type(self.dtype)
-        self.c_0 = torch.zeros(self.hidden_layer_depth, self.batch_size, self.hidden_size, requires_grad=True).type(
-            self.dtype)
+        self.decoder_inputs = torch.zeros(self.sequence_length, self.batch_size, 1, requires_grad=True)
+        self.c_0 = torch.zeros(self.hidden_layer_depth, self.batch_size, self.hidden_size, requires_grad=True)
 
         nn.init.xavier_uniform_(self.latent_to_hidden.weight)
         nn.init.xavier_uniform_(self.hidden_to_output.weight)
@@ -177,7 +178,6 @@ class VRAE(nn.Module):
     :param dropout_rate: The probability of a node being dropped-out
     :param optimizer: ADAM/ SGD optimizer to reduce the loss function
     :param loss: SmoothL1Loss / MSELoss / ReconLoss / any custom loss which inherits from `_Loss` class
-    :param boolean cuda: to be run on GPU or not
     :param print_every: The number of iterations after which loss should be printed
     :param boolean clip: Gradient clipping to overcome explosion
     :param max_grad_norm: The grad-norm to be clipped
@@ -187,18 +187,11 @@ class VRAE(nn.Module):
     def __init__(self, sequence_length, number_of_features, hidden_size=90, hidden_layer_depth=2, latent_length=20,
                  batch_size=32, learning_rate=0.005, block='LSTM',
                  n_epochs=5, dropout_rate=0., optimizer='Adam', loss='MSELoss',
-                 cuda=False, print_every=100, clip=True, max_grad_norm=5, dload='.'):
+                 print_every=100, clip=True, max_grad_norm=5, dload='.'):
 
         super(VRAE, self).__init__()
 
-        self.dtype = torch.FloatTensor
-        self.use_cuda = cuda
-
-        if not torch.cuda.is_available() and self.use_cuda:
-            self.use_cuda = False
-
-        if self.use_cuda:
-            self.dtype = torch.cuda.FloatTensor
+        self.device = get_device
 
         self.encoder = Encoder(number_of_features=number_of_features,
                                hidden_size=hidden_size,
@@ -216,8 +209,7 @@ class VRAE(nn.Module):
                                hidden_layer_depth=hidden_layer_depth,
                                latent_length=latent_length,
                                output_size=number_of_features,
-                               block=block,
-                               dtype=self.dtype)
+                               block=block)
 
         self.sequence_length = sequence_length
         self.hidden_size = hidden_size
@@ -233,9 +225,6 @@ class VRAE(nn.Module):
         self.is_fitted = False
         self.dload = dload
 
-        if self.use_cuda:
-            self.cuda()
-
         if optimizer == 'Adam':
             self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
         elif optimizer == 'SGD':
@@ -249,10 +238,9 @@ class VRAE(nn.Module):
             self.loss_fn = nn.MSELoss(size_average=False)
 
     def __repr__(self):
-        return """VRAE(n_epochs={n_epochs},batch_size={batch_size},cuda={cuda})""".format(
+        return """VRAE(n_epochs={n_epochs},batch_size={batch_size})""".format(
             n_epochs=self.n_epochs,
-            batch_size=self.batch_size,
-            cuda=self.use_cuda)
+            batch_size=self.batch_size,)
 
     def forward(self, x):
         """
@@ -291,7 +279,7 @@ class VRAE(nn.Module):
         :param X: Input tensor
         :return: total loss, reconstruction loss, kl-divergence loss and original input
         """
-        x = Variable(X[:, :, :].type(self.dtype), requires_grad=True)
+        x = Variable(X[:, :, :], requires_grad=True)
 
         x_decoded, _ = self(x)
         loss, recon_loss, kl_loss = self._rec(x_decoded, x.detach(), self.loss_fn)
@@ -333,7 +321,7 @@ class VRAE(nn.Module):
                 print('Batch %d, loss = %.4f, recon_loss = %.4f, kl_loss = %.4f' % (t + 1, loss.item(),
                                                                                     recon_loss.item(), kl_loss.item()))
 
-        print('Average loss: {:.4f}'.format(epoch_loss / t))
+        print('Average loss: {:.4f}'.format(epoch_loss / (t + 1)))
 
     def fit(self, dataset, save=False):
         """
@@ -367,7 +355,7 @@ class VRAE(nn.Module):
         """
         return self.lmbd(
             self.encoder(
-                Variable(x.type(self.dtype), requires_grad=False)
+                Variable(x, requires_grad=False)
             )
         ).cpu().data.numpy()
 
@@ -379,7 +367,7 @@ class VRAE(nn.Module):
         :return: reconstructed output tensor
         """
 
-        x = Variable(x.type(self.dtype), requires_grad=False)
+        x = Variable(x, requires_grad=False)
         x_decoded, _ = self(x)
 
         return x_decoded.cpu().data.numpy()

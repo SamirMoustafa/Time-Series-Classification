@@ -1,4 +1,3 @@
-import time
 from multiprocessing.dummy import Pool as ThreadPool
 
 import numpy as np
@@ -19,13 +18,15 @@ class PersistenceDiagramsExtractor:
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
         self.parallel_ = parallel
+        self.n_job = -1 if self.parallel_ else None
 
     def tokens_embeddings_(self, X):
         X_transformed = list()
         for series in X:
             te = TakensEmbedding(parameters_type='search',
                                  dimension=self.tokens_embedding_dim_,
-                                 time_delay=self.tokens_embedding_delay_)
+                                 time_delay=self.tokens_embedding_delay_,
+                                 n_jobs=self.n_job)
             X_transformed.append(te.fit_transform(series))
         return X_transformed
 
@@ -43,8 +44,8 @@ class PersistenceDiagramsExtractor:
             return X_transformed
 
     def parallel_embed_(self, embedding):
-        vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_, n_jobs=-1)
-        diagram_scaler = Scaler(n_jobs=-1)
+        vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_, n_jobs=self.n_job)
+        diagram_scaler = Scaler(n_jobs=self.n_job)
         persistence_diagrams = diagram_scaler.fit_transform(vr.fit_transform([embedding]))
         if self.filtering_:
             diagram_filter = Filtering(epsilon=0.1, homology_dimensions=self.filtering_dimensions_)
@@ -219,5 +220,5 @@ class AveragePersistenceLandscapeFeature(PersistenceDiagramFeatureExtractor):
 
     def extract_feature_(self, persistence_diagram):
         # As practice shows, only 1st layer of 1st homology dimension plays role
-        persistence_landscape = PersistenceLandscape().fit_transform([persistence_diagram])[0, 1, 0, :]
+        persistence_landscape = PersistenceLandscape(n_jobs=-1).fit_transform([persistence_diagram])[0, 1, 0, :]
         return np.array([np.sum(persistence_landscape) / persistence_landscape.shape[0]])
