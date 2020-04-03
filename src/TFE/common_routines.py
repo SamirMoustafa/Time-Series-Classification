@@ -12,12 +12,13 @@ from src.TFE.base import PersistenceDiagramFeatureExtractor
 
 class PersistenceDiagramsExtractor:
     def __init__(self, tokens_embedding_dim, tokens_embedding_delay, homology_dimensions,
-                 filtering=False, filtering_dimensions=(1, 2)):
+                 filtering=False, filtering_dimensions=(1, 2), parallel=False):
         self.tokens_embedding_dim_ = tokens_embedding_dim
         self.tokens_embedding_delay_ = tokens_embedding_delay
         self.homology_dimensions_ = homology_dimensions
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
+        self.parallel_ = parallel
 
     def tokens_embeddings_(self, X):
         X_transformed = list()
@@ -29,14 +30,19 @@ class PersistenceDiagramsExtractor:
         return X_transformed
 
     def persistence_diagrams_(self, X_embdeddings):
-        pool = ThreadPool()
+        if self.parallel_:
+            pool = ThreadPool()
+            X_transformed = pool.map(self.parallel_embed_, X_embdeddings)
+            pool.close()
+            pool.join()
+            return X_transformed
+        else:
+            X_transformed = list()
+            for embedding in X_embdeddings:
+                X_transformed.append(self.parallel_embed_(embedding))
+            return X_transformed
 
-        X_transformed = pool.map(self.parallel_embed, X_embdeddings)
-        pool.close()
-        pool.join()
-        return X_transformed
-
-    def parallel_embed(self, embedding):
+    def parallel_embed_(self, embedding):
         vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_, n_jobs=-1)
         diagram_scaler = Scaler(n_jobs=-1)
         persistence_diagrams = diagram_scaler.fit_transform(vr.fit_transform([embedding]))
@@ -206,32 +212,3 @@ class SimultaneousAliveHolesFeatue(PersistenceDiagramFeatureExtractor):
 
         return feature
 
-
-if __name__ == '__main__':
-    from src.utils import get_data_from_directory, get_files_directory_list
-
-    directory_list = get_files_directory_list()
-    directory_list = sorted(directory_list)
-
-    random_index = 15  # 6 # 5
-    random_path = directory_list[random_index]
-    X_train, X_test, y_train, y_test = get_data_from_directory(random_path)
-    X_train = X_train.squeeze()
-    y_train = y_train.squeeze()
-    X_test = X_test.squeeze()
-    y_test = y_test.squeeze()
-
-    feature_extractor = TopologicalFeaturesExtractor(
-        persistence_diagram_extractor=PersistenceDiagramsExtractor(tokens_embedding_dim=3,
-                                                                   tokens_embedding_delay=10,
-                                                                   homology_dimensions=(0, 1, 2)),
-        persistence_diagram_features=[HolesNumberFeature(),
-                                      MaxHoleLifeTimeFeature(),
-                                      RelevantHolesNumber(),
-                                      AverageHoleLifetimeFeature(),
-                                      SumHoleLifetimeFeature(),
-                                      PersistenceEntropyFeature(),
-                                      SimultaneousAliveHolesFeatue()])
-
-    X_train_transformed = feature_extractor.fit_transform(X_train)
-    X_test_transformed = feature_extractor.fit_transform(X_test)
