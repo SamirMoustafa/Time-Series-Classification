@@ -2,7 +2,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 import numpy as np
 
-from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLandscape
+from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLandscape, BettiCurve
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
 
@@ -222,3 +222,13 @@ class AveragePersistenceLandscapeFeature(PersistenceDiagramFeatureExtractor):
         # As practice shows, only 1st layer of 1st homology dimension plays role
         persistence_landscape = PersistenceLandscape(n_jobs=-1).fit_transform([persistence_diagram])[0, 1, 0, :]
         return np.array([np.sum(persistence_landscape) / persistence_landscape.shape[0]])
+
+    
+class BettiNumbersSumFeature(PersistenceDiagramFeatureExtractor):
+    def __init__(self):
+        super(BettiNumbersSumFeature).__init__()
+        
+    def extract_feature_(self, persistence_diagram):
+        betti_curve = BettiCurve().fit_transform([persistence_diagram])[0]
+        return np.array([np.sum(betti_curve[i, :]) for i in range(int(np.max(persistence_diagram[:, 2])) + 1)])
+    
