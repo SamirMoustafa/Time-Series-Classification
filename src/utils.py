@@ -73,16 +73,17 @@ class TimeSeriesDataset(Dataset):
     def __init__(self, X, y, device=None, ):
         super(TimeSeriesDataset, self).__init__()
 
-        self.X = torch.tensor(X, dtype=torch.float32)
-        self.y = torch.tensor(y, dtype=torch.float32)
-
         self.device = get_device()
+
+        self.X = torch.tensor(X, dtype=torch.float32).to(self.device)
+        self.y = torch.tensor(y, dtype=torch.float32).to(self.device)
+
 
     def __len__(self):
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        return self.X[idx].to(self.device), self.y[idx].to(self.device)
+        return self.X[idx], self.y[idx]
 
 
 def train_AE(epochs, net, criterion, optimizer, train_loader, val_loader, scheduler=None, verbose=True, save_dir=None):
