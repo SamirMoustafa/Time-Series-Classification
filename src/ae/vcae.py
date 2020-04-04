@@ -166,6 +166,7 @@ def train_AE(num_epochs, vae, loader_train, loader_test, optimizer, device, verb
             if save_dir:
                 torch.save(vae.state_dict(), save_dir)
 
+
         if verbose:
             mb.main_bar.comment = f'EPOCHS'
             plot_loss_update(epoch, num_epochs, mb, train_loss_values, val_loss_values)
