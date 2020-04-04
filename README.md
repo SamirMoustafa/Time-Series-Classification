@@ -1,5 +1,5 @@
 # Topological Data Analysis for Time Series Classification
-TDA was used to extract topological features from 128 [UCR](http://www.timeseriesclassification.com) time series classification datasets. In our work we argue that topological features may help to identify interesting patterns in the data classification. The approach we propose is suited to datasets in which shape has meaning. This repo contains the pipeline for extracting the topological features and evaluation of multiple classification algorithms on those features.
+TDA was used to extract topological features from 128 [UCR](http://www.timeseriesclassification.com) time series classification datasets. In our work we argue that topological features may help to identify interesting patterns in the data classification. The approach we propose is suited to datasets in which shape has meaning. This repo contains the pipeline for extracting the topological features and evaluation of multiple classification algorithms on this features.
 # Getting started
 ## Installation
 * Clone this repo: 
