@@ -60,8 +60,8 @@ def extract_dataset(dataset_index):
 
 
 def main():
-    start_index = int(sys.argv[1])
-    end_index = int(sys.argv[2])
+    start_index = int(sys.argv[120])
+    end_index = int(sys.argv[129])
     for i in range(start_index, end_index + 1):
         try:
             extract_dataset(i)

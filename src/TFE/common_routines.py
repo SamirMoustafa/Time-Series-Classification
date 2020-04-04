@@ -237,7 +237,7 @@ class RadiusAtMaxBNFeature(PersistenceDiagramFeatureExtractor):
         super(RadiusAtMaxBNFeature).__init__()
 
     def extract_feature_(self, persistence_diagram, n_bins = 100):
-        betti_curve = BettiCurve(n_jobs = -1, n_values = n_bins).fit_transform([persistence_diagram])[0]
+        betti_curve = BettiCurve(n_jobs = -1, n_bins = n_bins).fit_transform([persistence_diagram])[0]
         max_dim = int(np.max(persistence_diagram[:, 2])) + 1
         max_bettis = np.array([np.max(betti_curve[i, :]) for i in range(max_dim)])
         return np.array([np.where(betti_curve[i, :] == max_bettis[i])[0][0]/(n_bins * max_dim) for i in range(max_dim)])
