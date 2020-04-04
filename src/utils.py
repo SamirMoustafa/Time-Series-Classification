@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly
 import plotly.graph_objects as go
+from fastprogress import progress_bar, master_bar
 from sklearn.decomposition import TruncatedSVD
 from sklearn.manifold import TSNE
 
 import torch
 from torch.utils.data import Dataset
+
+from src.ae.vcae import vae_loss
 
 DATA_PATH = './Univariate_arff/'
 
@@ -86,82 +89,127 @@ class TimeSeriesDataset(Dataset):
         return self.X[idx], self.y[idx]
 
 
-def train_AE(epochs, net, criterion, optimizer, train_loader, val_loader, scheduler=None, verbose=True, save_dir=None):
-    net.to(get_device())
-    train_loss_sum = list()
-    val_loss_sum = list()
+def plot_loss_update(epoch, epochs, mb, train_loss, valid_loss):
+    x = [i + 1 for i in range(epoch + 1)]
+    y = np.concatenate((train_loss, valid_loss))
+    graphs = [[x, train_loss], [x, valid_loss]]
+    x_margin = 0.2
+    y_margin = 0.05
+    x_bounds = [1 - x_margin, epochs + x_margin]
+    y_bounds = [np.min(y) - y_margin, np.max(y) + y_margin]
+    mb.update_graph(graphs, x_bounds, y_bounds)
 
-    for epoch in range(1, epochs + 1):
-        net.train()
-        for X, _ in train_loader:
 
+def train_AE(num_epochs, vae, loader_train, loader_test, optimizer, device, verbose=False, save_dir=None):
+    vae.train()
+
+    mb = master_bar(range(num_epochs))
+    best_val_loss = np.inf
+    best_model_ = None
+
+    mb.names = ['train', 'test']
+
+    print('Training ...')
+
+    train_loss_values, val_loss_values = [], []
+
+    for epoch in mb:
+
+        vae.train()
+
+        train_loss_pre_epoch = list()
+        for X, _ in progress_bar(loader_train, parent=mb):
+            X = X.to(device)
+
+            # vae reconstruction
+            Z, latent_mu, latent_log_var = vae(X)
+            loss = vae_loss(Z, X, latent_mu, latent_log_var)
             optimizer.zero_grad()
-            output = net(X)
-            loss = criterion(output, X)
-            train_loss_sum.append(loss.item())
             loss.backward()
             optimizer.step()
+            train_loss_pre_epoch.append(loss.item())
 
-        net.eval()
-        best_val_loss = np.inf
-        for X, _ in val_loader:
-            output = net(X)
-            val_loss = criterion(output, X)
-            val_loss_sum.append(val_loss.item())
-            if best_val_loss >= val_loss.item() and save_dir:
-                best_val_loss = val_loss.item()
-                torch.save(net.state_dict(), save_dir)
+        train_loss_mean = np.mean(train_loss_pre_epoch)
+        train_loss_values.append(train_loss_mean)
 
-        if scheduler is not None:
-            scheduler.step()
-        freq = max(epochs // 20, 1)
-        if verbose and epoch % freq == 0:
-            print('Epoch {}/{} ||\t Loss:  Train {:.4f} | Validation {:.4f}'.format(epoch,
-                                                                                  epochs,
-                                                                                  sum(train_loss_sum),
-                                                                                  sum(val_loss_sum)))
+        vae.eval()
+        val_loss_pre_epoch = list()
+        for X, _ in progress_bar(loader_test, parent=mb):
+            Z, latent_mu, latent_log_var = vae(X)
+            loss = vae_loss(Z, X, latent_mu, latent_log_var)
+
+            val_loss_pre_epoch.append(loss.item())
+        val_loss_mean = np.mean(val_loss_pre_epoch)
+
+        val_loss_values.append(val_loss_mean)
+
+        if best_val_loss >= val_loss_mean:
+            best_val_loss = val_loss_mean
+            best_model_ = vae
+            if save_dir:
+                torch.save(vae.state_dict(), save_dir)
+
+        if verbose:
+            mb.main_bar.comment = f'EPOCHS'
+            plot_loss_update(epoch, num_epochs, mb, train_loss_values, val_loss_values)
+
+    return best_model_
 
 
-def train_clf(epochs, net, criterion, optimizer, train_loader, val_loader, scheduler=None, verbose=True, save_dir=None):
-    net.to(get_device())
-    best_model = None
+def train_clf(num_epochs, clf, loader_train, loader_test, optimizer, loss_fun, device, verbose=False, save_dir=None):
+    clf.train()
 
-    for epoch in range(1, epochs + 1):
+    mb = master_bar(range(num_epochs))
+    best_val_loss = np.inf
+    best_model_ = None
 
-        train_loss_sum = list()
-        val_loss_sum = list()
+    mb.names = ['train', 'test']
 
-        net.train()
-        for X, y in train_loader:
+    print('Training ...')
+
+    train_loss_values, val_loss_values = [], []
+
+    for epoch in mb:
+
+        clf.train()
+
+        train_loss_pre_epoch = list()
+        for X,y in progress_bar(loader_train, parent=mb):
+            X = X.to(device)
+            y = y.to(device)
+
+            output = clf(X)
+            loss = loss_fun(output, y)
             optimizer.zero_grad()
-            output = net(X)
-            loss = criterion(output, y)
-            train_loss_sum.append(loss.item())
             loss.backward()
             optimizer.step()
+            train_loss_pre_epoch.append(loss.item())
 
-        net.eval()
-        best_val_loss = np.inf
-        for X, y in val_loader:
-            output = net(X)
-            val_loss = criterion(output, y)
-            val_loss_sum.append(val_loss.item())
+        train_loss_mean = np.mean(train_loss_pre_epoch)
+        train_loss_values.append(train_loss_mean)
 
-            if best_val_loss >= val_loss.item():
-                best_val_loss = val_loss.item()
-                best_model = net
-                if  save_dir:
-                    torch.save(net.state_dict(), save_dir)
+        clf.eval()
+        val_loss_pre_epoch = list()
+        for X, y in progress_bar(loader_test, parent=mb):
+            output = clf(X)
+            loss = loss_fun(output, y)
 
-        if scheduler is not None:
-            scheduler.step()
-        freq = max(epochs // 20, 1)
-        if verbose and epoch % freq == 0:
-            print('Epoch {}/{} ||\t Loss:  Train {:.4f} | Validation {:.4f}'.format(epoch,
-                                                                                    epochs,
-                                                                                    sum(train_loss_sum),
-                                                                                    sum(val_loss_sum)))
-    return best_model
+            val_loss_pre_epoch.append(loss.item())
+        val_loss_mean = np.mean(val_loss_pre_epoch)
+
+        val_loss_values.append(val_loss_mean)
+
+        if best_val_loss >= val_loss_mean:
+            best_val_loss = val_loss_mean
+            best_model_ = clf
+            if save_dir:
+                torch.save(clf.state_dict(), save_dir)
+
+        if verbose:
+            mb.main_bar.comment = f'EPOCHS'
+            plot_loss_update(epoch, num_epochs, mb, train_loss_values, val_loss_values)
+
+    return best_model_
 
 
 def plot_clustering(z_run, labels, engine='plotly', download=False, folder_name='clustering'):

@@ -5,10 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from fastprogress.fastprogress import master_bar, progress_bar
-
-from src.utils import TimeSeriesDataset
-
 
 class Encoder(nn.Module):
     def __init__(self, capacity, latent_dims, scalable_dim):
@@ -37,7 +33,8 @@ class Decoder(nn.Module):
         self.scalable_dim = scalable_dim - 3 - 1
 
         self.fc = nn.Linear(in_features=latent_dims, out_features=self.c * 3)
-        self.conv2 = nn.ConvTranspose1d(in_channels=self.c, out_channels=1, kernel_size=self.scalable_dim, stride=3, padding=1)
+        self.conv2 = nn.ConvTranspose1d(in_channels=self.c, out_channels=1, kernel_size=self.scalable_dim, stride=3,
+                                        padding=1)
 
     def forward(self, x):
         x = self.fc(x)
@@ -106,75 +103,10 @@ def vae_loss(recon_x, x, mu, logvar, variational_beta=1):
     return recon_loss + variational_beta * kldivergence
 
 
-def plot_loss_update(epoch, epochs, mb, train_loss, valid_loss):
-    x = [i + 1 for i in range(epoch + 1)]
-    y = np.concatenate((train_loss, valid_loss))
-    graphs = [[x, train_loss], [x, valid_loss]]
-    x_margin = 0.2
-    y_margin = 0.05
-    x_bounds = [1 - x_margin, epochs + x_margin]
-    y_bounds = [np.min(y) - y_margin, np.max(y) + y_margin]
-    mb.update_graph(graphs, x_bounds, y_bounds)
-
-
-def train_AE(num_epochs, vae, loader_train, loader_test, optimizer, device, verbose=False, save_dir=None):
-    vae.train()
-
-    mb = master_bar(range(num_epochs))
-    best_val_loss = np.inf
-    best_model_ = None
-
-    mb.names = ['train', 'test']
-
-    print('Training ...')
-
-    train_loss_values, val_loss_values = [], []
-
-    for epoch in mb:
-
-        vae.train()
-
-        train_loss_pre_epoch = list()
-        for X, _ in progress_bar(loader_train, parent=mb):
-            X = X.to(device)
-
-            # vae reconstruction
-            Z, latent_mu, latent_log_var = vae(X)
-            loss = vae_loss(Z, X, latent_mu, latent_log_var)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            train_loss_pre_epoch.append(loss.item())
-
-        train_loss_mean = np.mean(train_loss_pre_epoch)
-        train_loss_values.append(train_loss_mean)
-
-        vae.eval()
-        val_loss_pre_epoch = list()
-        for X, _ in progress_bar(loader_test, parent=mb):
-            Z, latent_mu, latent_log_var = vae(X)
-            loss = vae_loss(Z, X, latent_mu, latent_log_var)
-
-            val_loss_pre_epoch.append(loss.item())
-        val_loss_mean = np.mean(val_loss_pre_epoch)
-
-        val_loss_values.append(val_loss_mean)
-
-        if best_val_loss >= val_loss_mean:
-            best_val_loss = val_loss_mean
-            best_model_ = vae
-            if save_dir:
-                torch.save(vae.state_dict(), save_dir)
-
-        if verbose:
-            mb.main_bar.comment = f'EPOCHS'
-            plot_loss_update(epoch, num_epochs, mb, train_loss_values, val_loss_values)
-
-    return best_model_
-
-
 if __name__ == '__main__':
-    device = torch.device("cuda:3")
+    from src.utils import TimeSeriesDataset, get_device
+
+    device = get_device()
 
     X_train_transformed_path = './../../TDA-Datasets/Beef/Beef_TRAIN'
     X_test_transformed_path = './../../TDA-Datasets/Beef/Beef_TEST'
