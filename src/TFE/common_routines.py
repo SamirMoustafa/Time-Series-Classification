@@ -44,7 +44,8 @@ class PersistenceDiagramsExtractor:
             return X_transformed
 
     def parallel_embed_(self, embedding):
-        vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_, n_jobs=self.n_job)
+        vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_,
+                                     n_jobs=self.n_job)
         diagram_scaler = Scaler(n_jobs=self.n_job)
         persistence_diagrams = diagram_scaler.fit_transform(vr.fit_transform([embedding]))
         if self.filtering_:
@@ -65,13 +66,13 @@ class TopologicalFeaturesExtractor:
 
     def fit_transform(self, X):
         X_transformed = None
-        
+
         X_pd = self.persistence_diagram_extractor_.fit_transform(X)
 
         for pd_feature in self.persistence_diagram_features_:
             X_features = pd_feature.fit_transform(X_pd)
             X_transformed = np.vstack((X_transformed.T, X_features.T)).T if X_transformed is not None else X_features
-        
+
         return X_transformed
 
 
@@ -212,7 +213,7 @@ class SimultaneousAliveHolesFeatue(PersistenceDiagramFeatureExtractor):
                 feature[dim] = self.get_average_simultaneous_holes_(np.array(holes))
 
         return feature
-    
+
 
 class AveragePersistenceLandscapeFeature(PersistenceDiagramFeatureExtractor):
     def __init__(self):
@@ -223,22 +224,23 @@ class AveragePersistenceLandscapeFeature(PersistenceDiagramFeatureExtractor):
         persistence_landscape = PersistenceLandscape(n_jobs=-1).fit_transform([persistence_diagram])[0, 1, 0, :]
         return np.array([np.sum(persistence_landscape) / persistence_landscape.shape[0]])
 
-    
+
 class BettiNumbersSumFeature(PersistenceDiagramFeatureExtractor):
     def __init__(self):
         super(BettiNumbersSumFeature).__init__()
-        
+
     def extract_feature_(self, persistence_diagram):
-        betti_curve = BettiCurve(n_jobs = -1).fit_transform([persistence_diagram])[0]
+        betti_curve = BettiCurve(n_jobs=-1).fit_transform([persistence_diagram])[0]
         return np.array([np.sum(betti_curve[i, :]) for i in range(int(np.max(persistence_diagram[:, 2])) + 1)])
-    
+
+
 class RadiusAtMaxBNFeature(PersistenceDiagramFeatureExtractor):
     def __init__(self):
         super(RadiusAtMaxBNFeature).__init__()
 
-    def extract_feature_(self, persistence_diagram, n_bins = 100):
-        betti_curve = BettiCurve(n_jobs = -1, n_bins = n_bins).fit_transform([persistence_diagram])[0]
+    def extract_feature_(self, persistence_diagram, n_bins=100):
+        betti_curve = BettiCurve(n_jobs=-1, n_bins=n_bins).fit_transform([persistence_diagram])[0]
         max_dim = int(np.max(persistence_diagram[:, 2])) + 1
         max_bettis = np.array([np.max(betti_curve[i, :]) for i in range(max_dim)])
-        return np.array([np.where(betti_curve[i, :] == max_bettis[i])[0][0]/(n_bins * max_dim) for i in range(max_dim)])
-
+        return np.array(
+            [np.where(betti_curve[i, :] == max_bettis[i])[0][0] / (n_bins * max_dim) for i in range(max_dim)])

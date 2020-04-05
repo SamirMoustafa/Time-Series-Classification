@@ -21,6 +21,7 @@ from scipy.stats import wilcoxon
 from scipy.stats import friedmanchisquare
 import networkx
 
+
 # inspired from orange3 https://docs.orange.biolab.si/3/data-mining-library/reference/evaluation.cd.html
 def graph_ranks(avranks, names, p_values, cd=None, cdmethod=None, lowv=None, highv=None,
                 width=6, textspace=1, reverse=False, filename=None, **kwargs):
@@ -284,7 +285,8 @@ def draw_cd_diagram(df_perf=None, alpha=0.05):
     graph_ranks(average_ranks.values, average_ranks.keys(), p_values,
                 cd=None, reverse=True, width=9, textspace=1.5)
 
-    plt.savefig('cd-diagram.png',bbox_inches='tight')
+    plt.savefig('cd-diagram.png', bbox_inches='tight')
+
 
 def wilcoxon_holm(alpha=0.05, df_perf=None):
     """
@@ -364,6 +366,6 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     # return the p-values and the average ranks
     return p_values, average_ranks, max_nb_datasets
 
-#df_perf = pd.read_csv('example.csv',index_col=False)
+# df_perf = pd.read_csv('example.csv',index_col=False)
 
-#draw_cd_diagram(df_perf=df_perf)
+# draw_cd_diagram(df_perf=df_perf)

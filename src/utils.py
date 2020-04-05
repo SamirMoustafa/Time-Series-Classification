@@ -1,3 +1,4 @@
+import json
 import os
 from random import randint
 
@@ -12,11 +13,19 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.manifold import TSNE
 
 import torch
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from torch.utils.data import Dataset, DataLoader
 
 from src.ae.vcae import vae_loss
 
 DATA_PATH = './Univariate_arff/'
+
+one_hot_encoding = lambda x: pd.get_dummies(x).values
+inverse_one_hot_encoding = lambda y: pd.get_dummies(pd.DataFrame(y, columns=list(range(1, y.shape[1] + 1)))).idxmax(1)
+
+get_device = lambda: torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
+handle_dim = lambda x, scale: np.swapaxes(scale.transform(x)[..., np.newaxis], 1, -1)
 
 
 def readucr(filename):
@@ -65,22 +74,14 @@ def get_data_from_directory(fname, split=True):
         return x, y
 
 
-def one_hot_encoding(x):
-    return pd.get_dummies(x).values
-
-get_device = lambda: torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
-handle_dim = lambda x, scale: np.swapaxes(scale.transform(x)[..., np.newaxis], 1, -1)
-
-
 class TimeSeriesDataset(Dataset):
-    def __init__(self, X, y, device=None,):
+    def __init__(self, X, y, device=None, ):
         super(TimeSeriesDataset, self).__init__()
 
         self.device = get_device()
 
         self.X = torch.tensor(X, dtype=torch.float32).to(self.device)
         self.y = torch.tensor(y, dtype=torch.float32).to(self.device)
-
 
     def __len__(self):
         return self.X.shape[0]
@@ -90,10 +91,9 @@ class TimeSeriesDataset(Dataset):
 
 
 class TimeSeriesDataLoader(DataLoader):
-    def __init__(self, X, y, batch_size=128, device=None,):
+    def __init__(self, X, y, batch_size=128, device=None, ):
         time_series_dataset = TimeSeriesDataset(X, y, device)
         super(TimeSeriesDataLoader, self).__init__(time_series_dataset, batch_size=batch_size)
-
 
 
 def plot_loss_update(epoch, epochs, mb, train_loss, valid_loss):
@@ -115,8 +115,6 @@ def train_AE(num_epochs, vae, loader_train, loader_test, optimizer, device, verb
     best_model_ = None
 
     mb.names = ['train', 'test']
-
-    print('Training ...')
 
     train_loss_values, val_loss_values = [], []
 
@@ -181,7 +179,7 @@ def train_clf(num_epochs, clf, loader_train, loader_test, optimizer, loss_fun, d
         clf.train()
 
         train_loss_pre_epoch = list()
-        for X,y in progress_bar(loader_train, parent=mb):
+        for X, y in progress_bar(loader_train, parent=mb):
             X = X.to(device)
             y = y.to(device)
 
@@ -217,6 +215,68 @@ def train_clf(num_epochs, clf, loader_train, loader_test, optimizer, loss_fun, d
             plot_loss_update(epoch, num_epochs, mb, train_loss_values, val_loss_values)
 
     return best_model_
+
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return super(NpEncoder, self).default(obj)
+
+
+def get_data_index_from_filename(file_name, directory_list):
+    for i, name in enumerate(directory_list):
+        if name == file_name:
+            return i
+
+
+def handle_n_neighbors_for_lower_dim_data(n_neighbors, shape):
+    # a lot of explanation, call it without understanding ))
+    n_neighbors = np.array(n_neighbors)
+    n_neighbors = n_neighbors[np.where(n_neighbors <= shape[0] // 2)]
+    return n_neighbors
+
+
+def run_single_model(model, params, X_train, X_test, y_train, y_test, is_vae):
+    results = dict()
+    clf_name = type(model).__name__
+    with_ = 'with' if is_vae else 'without'
+    clf_cv = GridSearchCV(model,
+                          param_grid=params,
+                          cv=StratifiedKFold(n_splits=2, shuffle=True, random_state=42),
+                          scoring='accuracy',
+                          n_jobs=-1)
+
+    clf_cv.fit(X_train, y_train)
+    y_pred_train = clf_cv.best_estimator_.predict(X_train)
+    y_pred_test = clf_cv.best_estimator_.predict(X_test)
+
+    acc_train = accuracy_score(y_train, y_pred_train)
+    acc_test = accuracy_score(y_test, y_pred_test)
+
+    """
+    recall_train = recall_score(y_train, y_pred_train, average='weighted')
+    recall_test = recall_score(y_test, y_pred_test, average='weighted')
+
+    precision_train = precision_score(y_train, y_pred_train, average='weighted')
+    precision_test = precision_score(y_test, y_pred_test, average='weighted')
+
+    f1_train = f1_score(y_train, y_pred_train, average='weighted')
+    f1_test = f1_score(y_test, y_pred_test, average='weighted')
+
+    print(clf_name + ", " + with_ + " AE, acc_train: " + str(acc_train) + ", acc_test: " + str(acc_test))
+    """
+    results[clf_name] = {"accuracy": (acc_train, acc_test),
+                         # "recall": (recall_train, recall_test),
+                         # "precision": (precision_train, precision_test),
+                         # "f1": (f1_train, f1_test),
+                         "params": clf_cv.best_params_}
+    return results
 
 
 def plot_clustering(z_run, labels, engine='plotly', download=False, folder_name='clustering'):
