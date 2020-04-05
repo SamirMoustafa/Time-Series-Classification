@@ -1,1 +1,1 @@
-from .ann import *
+from .ann import ANN
