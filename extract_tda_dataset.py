@@ -29,9 +29,9 @@ def extract_dataset(dataset_index):
     y_test = y_test.squeeze()
 
     feature_extractor = TopologicalFeaturesExtractor(
-        persistence_diagram_extractor=PersistenceDiagramsExtractor(tokens_embedding_dim=2, 
-                                                                   tokens_embedding_delay=3,
-                                                                   homology_dimensions=(0, 1),
+        persistence_diagram_extractor=PersistenceDiagramsExtractor(tokens_embedding_dim=10, 
+                                                                   tokens_embedding_delay=5,
+                                                                   homology_dimensions=(0, 1, 2),
                                                                    parallel=True),
         persistence_diagram_features=[HolesNumberFeature(),
                                       MaxHoleLifeTimeFeature(),

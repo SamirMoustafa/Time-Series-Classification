@@ -1,6 +1,8 @@
 import os
 from random import randint
 
+import pandas as pd
+
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly
@@ -10,7 +12,7 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.manifold import TSNE
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from src.ae.vcae import vae_loss
 
@@ -63,17 +65,15 @@ def get_data_from_directory(fname, split=True):
         return x, y
 
 
-def one_hot_encoding(x, dtype=float):
-    x = np.asarray(x).astype(int) - 1
-    n = np.unique(x).shape[0]
-    return np.eye(int(n), dtype=dtype)[x]
-
+def one_hot_encoding(x):
+    return pd.get_dummies(x).values
 
 get_device = lambda: torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
+handle_dim = lambda x, scale: np.swapaxes(scale.transform(x)[..., np.newaxis], 1, -1)
 
 
 class TimeSeriesDataset(Dataset):
-    def __init__(self, X, y, device=None, ):
+    def __init__(self, X, y, device=None,):
         super(TimeSeriesDataset, self).__init__()
 
         self.device = get_device()
@@ -87,6 +87,13 @@ class TimeSeriesDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
+
+
+class TimeSeriesDataLoader(DataLoader):
+    def __init__(self, X, y, batch_size=128, device=None,):
+        time_series_dataset = TimeSeriesDataset(X, y, device)
+        super(TimeSeriesDataLoader, self).__init__(time_series_dataset, batch_size=batch_size)
+
 
 
 def plot_loss_update(epoch, epochs, mb, train_loss, valid_loss):
