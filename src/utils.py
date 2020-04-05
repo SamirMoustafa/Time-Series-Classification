@@ -269,8 +269,10 @@ def run_single_model(model, params, X_train, X_test, y_train, y_test, is_vae):
     f1_train = f1_score(y_train, y_pred_train, average='weighted')
     f1_test = f1_score(y_test, y_pred_test, average='weighted')
 
-    print(clf_name + ", " + with_ + " AE, acc_train: " + str(acc_train) + ", acc_test: " + str(acc_test))
     """
+    print(clf_name + ", " + with_ + " AE, acc_train: " + str(acc_train) + ", acc_test: " + str(acc_test))
+
+
     results[clf_name] = {"accuracy": (acc_train, acc_test),
                          # "recall": (recall_train, recall_test),
                          # "precision": (precision_train, precision_test),

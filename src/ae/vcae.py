@@ -104,7 +104,7 @@ def vae_loss(recon_x, x, mu, logvar, variational_beta=1):
 
 
 if __name__ == '__main__':
-    from src.utils import TimeSeriesDataset, get_device
+    from src.utils import TimeSeriesDataset, get_device, train_AE
 
     device = get_device()
 

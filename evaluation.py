@@ -85,7 +85,7 @@ def evaluate_dataset(dataset_path):
     y_train = y_train.squeeze()
     y_test = y_test.squeeze()
 
-    models_list = [SVC(random_state=42),
+    models_list = [SVC(random_state=42, max_iter=10e5),
                    XGBClassifier(n_jobs=-1, random_state=42),
                    KNeighborsClassifier(n_jobs=-1),
                    CatBoostClassifier(random_state=42, silent=True),
@@ -99,9 +99,8 @@ def evaluate_dataset(dataset_path):
 
                    {"n_neighbors": [3, 5, 7, 11, ]},
 
-                   {"max_depth": [2, 35, 70, 150],
-                    "n_estimators": [20, 50, 100, ],
-                    "early_stopping_rounds": [2, 5, 8,]},
+                   {"max_depth": [5, 35, 70, 150],
+                    "n_estimators": [20, 50, 100, ],},
 
                    {"max_depth": [2, 35, 70, 150],
                     "n_estimators": [20, 50, 100, ]}, ]
@@ -153,7 +152,7 @@ def evaluate_dataset(dataset_path):
                                        y_train, y_test,
                                        True)
     neural_net_dict = run_neural_net_model(latent_dim, num_classes, z_train, z_test, y_train, y_test, device)
-    results_with_vae[dataset_name + '_with_AE']["NeuralNet_with_ae"] = neural_net_dict
+    results_with_vae[dataset_name + '_with_AE']["NeuralNet"] = neural_net_dict
     results.update(results_with_vae)
     return results
 
