@@ -1,4 +1,5 @@
 import warnings
+
 warnings.filterwarnings('ignore')
 
 from tqdm import tqdm
@@ -13,10 +14,8 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 
 ### our imports
-from src.nn.ann import ANN
-from src.utils import *
+from src import *
 from src.TFE import *
-from src import VariationalAutoencoder
 
 from pathlib import Path
 import json
@@ -26,6 +25,21 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 np.random.seed(0)
 device = get_device()
+
+
+def run_neural_net_model(latent_dim, num_classes, z_train, z_test, y_train, y_test, device):
+    neural_net_params = {'in_features=latent_dim': latent_dim,
+                         'out_features': num_classes,
+                         'depth': 4}
+
+    net = ANN(latent_dim, num_classes, device)
+    net.fit(z_train, y_train)
+
+    y_pred_train = net.predict(z_train)
+    y_pred_test = net.predict(z_test)
+
+    return {"metric": get_metric_dict(y_train, y_pred_train, y_test, y_pred_test),
+            "params": neural_net_params}
 
 
 def run_models_list(dataset_name, models_list, params_list, X_train, X_test, y_train, y_test, is_vae):
@@ -49,23 +63,6 @@ def run_models_list(dataset_name, models_list, params_list, X_train, X_test, y_t
     res = [p.get() for p in results_list]
     [results_dict.update(res) for res in res]
     return {dataset_name + '_' + with_: results_dict}
-
-
-def run_neural_net_model(latent_dim, num_classes, z_train, z_test, y_train, y_test, device):
-    neural_net_params = {'in_features=latent_dim': latent_dim,
-                         'out_features': num_classes,
-                         'depth': 4}
-
-    net = ANN(latent_dim, num_classes, device)
-    net.fit(z_train, y_train)
-
-    y_train_pred = net.predict(z_train)
-    y_test_pred = net.predict(z_test)
-
-    acc_train = accuracy_score(y_train, y_train_pred)
-    acc_test = accuracy_score(y_test, y_test_pred)
-
-    return {"accuracy": (acc_train, acc_test), "params": neural_net_params}
 
 
 def evaluate_dataset(dataset_path):
@@ -100,7 +97,7 @@ def evaluate_dataset(dataset_path):
                    {"n_neighbors": [3, 5, 7, 11, ]},
 
                    {"max_depth": [5, 35, 70, 150],
-                    "n_estimators": [20, 50, 100, ],},
+                    "n_estimators": [20, 50, 100, ], },
 
                    {"max_depth": [2, 35, 70, 150],
                     "n_estimators": [20, 50, 100, ]}, ]
@@ -139,7 +136,7 @@ def evaluate_dataset(dataset_path):
 
     optimizer = torch.optim.Adam(params=vae.parameters(), lr=2e-3, weight_decay=1e-5)
 
-    vae = train_AE(200, vae, dataset_train, dataset_test, optimizer, device, verbose=True)
+    vae = train_AE(1000, vae, dataset_train, dataset_test, optimizer, device, verbose=True)
 
     from_vae_loader2numpy = lambda model, x: model.transform(x.dataset[:][0]).cpu().detach().numpy()
     z_train = from_vae_loader2numpy(vae, dataset_train)

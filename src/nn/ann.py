@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from src.utils import train_clf, TimeSeriesDataLoader, one_hot_encoding, inverse_one_hot_encoding
+from src import train_clf, TimeSeriesDataLoader, one_hot_encoding, inverse_one_hot_encoding
 
 
 class ANN(object):
@@ -30,7 +30,7 @@ class ANN(object):
         dataset_train = TimeSeriesDataLoader(X, y, 128)
         optimizer = torch.optim.SGD(params=self.clf.parameters(), lr=1e-3, momentum=.9)
         loss_fun = nn.BCELoss()
-        train_clf(50, self.clf, dataset_train, [], optimizer, loss_fun, self.device, True)
+        train_clf(200, self.clf, dataset_train, [], optimizer, loss_fun, self.device)
         return self
 
     def predict(self, X):

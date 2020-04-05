@@ -13,7 +13,7 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.manifold import TSNE
 
 import torch
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, matthews_corrcoef
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from torch.utils.data import Dataset, DataLoader
 
@@ -170,8 +170,6 @@ def train_clf(num_epochs, clf, loader_train, loader_test, optimizer, loss_fun, d
 
     mb.names = ['train', 'test']
 
-    print('Training ...')
-
     train_loss_values, val_loss_values = [], []
 
     for epoch in mb:
@@ -242,10 +240,33 @@ def handle_n_neighbors_for_lower_dim_data(n_neighbors, shape):
     return n_neighbors
 
 
+def get_metric_dict(y_train, y_pred_train, y_test, y_pred_test):
+    acc_train = accuracy_score(y_train, y_pred_train)
+    acc_test = accuracy_score(y_test, y_pred_test)
+
+    recall_train = recall_score(y_train, y_pred_train, average='weighted')
+    recall_test = recall_score(y_test, y_pred_test, average='weighted')
+
+    precision_train = precision_score(y_train, y_pred_train, average='weighted')
+    precision_test = precision_score(y_test, y_pred_test, average='weighted')
+
+    f1_train = f1_score(y_train, y_pred_train, average='weighted')
+    f1_test = f1_score(y_test, y_pred_test, average='weighted')
+
+    corrcoef_train = matthews_corrcoef(y_train, y_pred_train,)
+    corrcoef_test = matthews_corrcoef(y_test, y_pred_test,)
+
+    return {"accuracy": (acc_train, acc_test),
+            "recall": (recall_train, recall_test),
+            "precision": (precision_train, precision_test),
+            "f1": (f1_train, f1_test),
+            "corrcoef": (corrcoef_train, corrcoef_test)
+            }
+
+
 def run_single_model(model, params, X_train, X_test, y_train, y_test, is_vae):
     results = dict()
     clf_name = type(model).__name__
-    with_ = 'with' if is_vae else 'without'
     clf_cv = GridSearchCV(model,
                           param_grid=params,
                           cv=StratifiedKFold(n_splits=2, shuffle=True, random_state=42),
@@ -256,27 +277,7 @@ def run_single_model(model, params, X_train, X_test, y_train, y_test, is_vae):
     y_pred_train = clf_cv.best_estimator_.predict(X_train)
     y_pred_test = clf_cv.best_estimator_.predict(X_test)
 
-    acc_train = accuracy_score(y_train, y_pred_train)
-    acc_test = accuracy_score(y_test, y_pred_test)
-
-    """
-    recall_train = recall_score(y_train, y_pred_train, average='weighted')
-    recall_test = recall_score(y_test, y_pred_test, average='weighted')
-
-    precision_train = precision_score(y_train, y_pred_train, average='weighted')
-    precision_test = precision_score(y_test, y_pred_test, average='weighted')
-
-    f1_train = f1_score(y_train, y_pred_train, average='weighted')
-    f1_test = f1_score(y_test, y_pred_test, average='weighted')
-
-    """
-    print(clf_name + ", " + with_ + " AE, acc_train: " + str(acc_train) + ", acc_test: " + str(acc_test))
-
-
-    results[clf_name] = {"accuracy": (acc_train, acc_test),
-                         # "recall": (recall_train, recall_test),
-                         # "precision": (precision_train, precision_test),
-                         # "f1": (f1_train, f1_test),
+    results[clf_name] = {"metric": get_metric_dict(y_train, y_pred_train, y_test, y_pred_test),
                          "params": clf_cv.best_params_}
     return results
 
