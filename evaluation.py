@@ -1,4 +1,5 @@
-import time
+import warnings
+from multiprocessing.dummy import Pool as ThreadPool
 
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
@@ -9,9 +10,7 @@ from sklearn.preprocessing import StandardScaler
 
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
-from sklearn.metrics import accuracy_score
-
-from multiprocessing.dummy import Pool as ThreadPool
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 
 from torch import nn
 
@@ -49,9 +48,9 @@ def get_data_index_from_filename(file_name, directory_list):
 
 
 def handle_n_neighbors_for_lower_dim_data(n_neighbors, shape):
+    # a lot of explanation, call it without understanding ))
     n_neighbors = np.array(n_neighbors)
-    n_neighbors = n_neighbors[np.where(n_neighbors <= shape[0])]
-    n_neighbors = n_neighbors[np.where(n_neighbors <= shape[1])]
+    n_neighbors = n_neighbors[np.where(n_neighbors <= shape[0]//2)]
     return n_neighbors
 
 
@@ -66,14 +65,36 @@ def run_single_model(model, params, X_train, X_test, y_train, y_test, is_vae):
                           n_jobs=-1)
 
     clf_cv.fit(X_train, y_train)
-    acc_train = accuracy_score(y_train, clf_cv.best_estimator_.predict(X_train))
-    acc_test = accuracy_score(y_test, clf_cv.best_estimator_.predict(X_test))
+    y_pred_train = clf_cv.best_estimator_.predict(X_train)
+    y_pred_test = clf_cv.best_estimator_.predict(X_test)
+
+    acc_train = accuracy_score(y_train, y_pred_train)
+    acc_test = accuracy_score(y_test, y_pred_test)
+
+
+    recall_train = recall_score(y_train, y_pred_train, average='weighted')
+    recall_test = recall_score(y_test, y_pred_test, average='weighted')
+
+
+    precision_train = precision_score(y_train, y_pred_train, average='weighted')
+    precision_test = precision_score(y_test, y_pred_test, average='weighted')
+
+    f1_train = f1_score(y_train, y_pred_train, average='weighted')
+    f1_test = f1_score(y_test, y_pred_test, average='weighted')
+
     print(clf_name + ", " + with_ + " AE, acc_train: " + str(acc_train) + ", acc_test: " + str(acc_test))
-    results[clf_name + "_no_ae"] = {"accuracy": (acc_train, acc_test), "params": clf_cv.best_params_}
+
+    results[clf_name] = {"accuracy": (acc_train, acc_test),
+                         "recall": (recall_train, recall_test),
+                         "precision": (precision_train, precision_test),
+                         "f1": (f1_train, f1_test),
+                         "params": clf_cv.best_params_}
     return results
 
 
-def run_models_list(models_list, params_list, X_train, X_test, y_train, y_test, is_vae):
+def run_models_list(dataset_name, models_list, params_list, X_train, X_test, y_train, y_test, is_vae):
+    with_ = ('with' if is_vae else 'without') + '_AE'
+
     pool = ThreadPool()
     results_list = list()
     results_dict = dict()
@@ -90,7 +111,7 @@ def run_models_list(models_list, params_list, X_train, X_test, y_train, y_test, 
 
     res = [p.get() for p in results_list]
     [results_dict.update(res) for res in res]
-    return results_dict
+    return {dataset_name+'_'+with_: results_dict}
 
 
 def evaluate_dataset(dataset_path):
@@ -110,32 +131,33 @@ def evaluate_dataset(dataset_path):
     y_train = y_train.squeeze()
     y_test = y_test.squeeze()
 
-    models_list = [ SVC(random_state=42),
-                    XGBClassifier(n_jobs=-1, random_state=42),
+    models_list = [ #SVC(random_state=42),
+                    #XGBClassifier(n_jobs=-1, random_state=42),
                     KNeighborsClassifier(n_jobs=-1),
-                    CatBoostClassifier(random_state=42, verbose=False),
+                    #CatBoostClassifier(random_state=42, verbose=False, silent=True),
                     RandomForestClassifier(n_jobs=-1, random_state=4)]
 
-    params_list = [{"C": [10 ** i for i in range(-2, 1)],
-                    "kernel": ["linear", "rbf", "sigmoid", "poly"]},
+    params_list = [#{"C": [10 ** i for i in range(-2, 1)],
+                   # "kernel": ["linear", "rbf", "sigmoid", "poly"]},
 
-                   {"max_depth": [2, 35, 70, 120, 150],
-                    "n_estimators": [20, 50, 100, ]},
+                   #{"max_depth": [2, 35, 70, 120, 150],
+                   # "n_estimators": [20, 50, 100, ]},
 
                    {"n_neighbors": [3, 5, 7, 11, ]},
 
-                   {"max_depth": [2, 35, 70, 120, 150],
-                    "n_estimators": [20, 50, 100,],
-                    "early_stopping_rounds": [2, 5, 8, 10, 50, 200]},
+                   #{"max_depth": [2, 35, 70, 120, 150],
+                   # "n_estimators": [20, 50, 100,],
+                   # "early_stopping_rounds": [2, 5, 8, 10, 50, 200]},
 
                    {"max_depth": [2, 35, 70, 120, 150],
                     "n_estimators": [20, 50, 100, ]}, ]
 
-    results = run_models_list(models_list,
+    results = run_models_list(dataset_name,
+                              models_list,
                               params_list,
                               X_train_transformed, X_test_transformed,
                               y_train, y_test,
-                              True)
+                              False)
 
     # Without VAE
 
@@ -143,7 +165,7 @@ def evaluate_dataset(dataset_path):
 
     num_classes = np.unique(y_train).shape[0]
     batch_size = 32
-    latent_dim = 4 * num_classes
+    latent_dim = 4
 
     scale = StandardScaler()
     scale.fit(X_train_transformed)
@@ -164,13 +186,14 @@ def evaluate_dataset(dataset_path):
 
     optimizer = torch.optim.Adam(params=vae.parameters(), lr=2e-3, weight_decay=1e-5)
 
-    vae = train_AE(1000, vae, dataset_train, dataset_test, optimizer, device, verbose=True)
+    vae = train_AE(1, vae, dataset_train, dataset_test, optimizer, device, verbose=True)
 
     from_vae_loader2numpy = lambda model, x: model.transform(x.dataset[:][0]).cpu().detach().numpy()
     z_train = from_vae_loader2numpy(vae, dataset_train)
     z_test = from_vae_loader2numpy(vae, dataset_test)
 
-    results_with_vae = run_models_list(models_list,
+    results_with_vae = run_models_list(dataset_name,
+                                       models_list,
                                        params_list,
                                        z_train, z_test,
                                        y_train, y_test,
@@ -197,7 +220,7 @@ def evaluate_dataset(dataset_path):
     optimizer = torch.optim.SGD(params=clf.parameters(), lr=1e-3, momentum=.9)
     loss_fun = nn.BCELoss()
 
-    train_clf(200, clf, dataset_train, dataset_test, optimizer, loss_fun, device, True)
+    train_clf(2, clf, dataset_train, dataset_test, optimizer, loss_fun, device, True)
 
     from_clf_loader2numpy = lambda model, x: model(x.dataset[:][0]).cpu().detach().numpy()
 
