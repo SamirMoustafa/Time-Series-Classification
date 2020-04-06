@@ -15,6 +15,8 @@ TDA was used to extract topological features from [UCR](http://www.timeseriescla
 * [Texas_sharpshooter.ipynb](./Texas_sharpshooter.ipynb) - notebook that was used to build Texas Sharpshooter plot
 * [CD_diagram.ipynb](./CD_diagram.ipynb) - notebook that was used to build CD diagram
 
+Extracted TDA features datasets from initial UCR datasets can be found [on Google Drive](https://drive.google.com/drive/folders/1GNzazPr4ethNuBNLzQWFy8plZETn5Ckq).
+
 ## Setup	
 * Clone this repo: 	
 ```	
