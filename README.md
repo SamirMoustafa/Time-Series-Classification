@@ -3,7 +3,7 @@ TDA was used to extract topological features from [UCR](http://www.timeseriescla
 
 <img src="images/TDA.jpg" width="425"/> <img src="images/tda_logo.svg" width="425"/> 	
 
-<img src = "images/Homology.gif" width = "425"/>	
+<img src = "images/Homology.gif" width = "425"/> 	
 
 ## Repository structure
 * [TDA.ipynb](./TDA.ipynb) - the main notebook that demonstrates the application, evaluation and analysis of topological features for time series classification
