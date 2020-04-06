@@ -14,6 +14,8 @@ TDA was used to extract topological features from [UCR](http://www.timeseriescla
 * [evaluation.py](./evaluation.py) - script that can be used for evaluation of extracted topological features datasets
 * [Texas_sharpshooter.ipynb](./Texas_sharpshooter.ipynb) - notebook that was used to build Texas Sharpshooter plot
 * [CD_diagram.ipynb](./CD_diagram.ipynb) - notebook that was used to build CD diagram
+* [results_wit_metrics_on_42.csv](./results_wit_metrics_on_42.csv) - CSV file that contains some on the test some of the dataset 
+* [results_with_accuracies_on_110.csv](./results_with_accuracies_on_110.csv) - CSV file that contains all the accuracies on the test for every dataset 
 
 Extracted topological features from the initial UCR datasets can be found [on Google Drive](https://drive.google.com/drive/folders/1GNzazPr4ethNuBNLzQWFy8plZETn5Ckq).
 
