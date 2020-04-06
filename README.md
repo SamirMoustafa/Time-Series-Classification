@@ -3,10 +3,21 @@ TDA was used to extract topological features from [UCR](http://www.timeseriescla
 
 <img src="images/TDA.jpg" width="425"/> <img src="images/tda_logo.svg" width="425"/> 	
 
-<img src = "images/Homology.gif" width = "425"/>	
+<img src = "images/Homology.gif" width = "425"/> 	
 
-# Getting started	
-## Installation	
+## Repository structure
+* [TDA.ipynb](./TDA.ipynb) - the main notebook that demonstrates the application, evaluation and analysis of topological features for time series classification
+* [src/TFE](./src/TFE) - contains routines for extracting Persistence Diagram and implemented topological features
+* [src/nn](./src/nn) and [src/ae](./src/ae) - contain neural network and VAE implementation
+* [src/utils.py](./src/utils.py) - contains helping methods
+* [extract_tda_dataset.py](./extract_tda_dataset.py) - script that can be used to generate datasets with topological features from initial UCR datasets
+* [evaluation.py](./evaluation.py) - script that can be used for evaluation of extracted topological features datasets
+* [Texas_sharpshooter.ipynb](./Texas_sharpshooter.ipynb) - notebook that was used to build Texas Sharpshooter plot
+* [CD_diagram.ipynb](./CD_diagram.ipynb) - notebook that was used to build CD diagram
+
+Extracted topological features from the initial UCR datasets can be found [on Google Drive](https://drive.google.com/drive/folders/1GNzazPr4ethNuBNLzQWFy8plZETn5Ckq).
+
+## Setup	
 * Clone this repo: 	
 ```	
 git clone https://github.com/SamirMoustafa/Time-Series-Classification.git	
@@ -16,7 +27,6 @@ git clone https://github.com/SamirMoustafa/Time-Series-Classification.git
 pip install -r requirements.txt	
 ```	
 
-## to be edited...  	
 
 
 
