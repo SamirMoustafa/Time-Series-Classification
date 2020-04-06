@@ -5,8 +5,10 @@ TDA was used to extract topological features from [UCR](http://www.timeseriescla
 
 <img src = "images/Homology.gif" width = "425"/>	
 
-# Getting started	
-## Installation	
+## Repository structure
+
+
+## Setup	
 * Clone this repo: 	
 ```	
 git clone https://github.com/SamirMoustafa/Time-Series-Classification.git	
@@ -16,7 +18,6 @@ git clone https://github.com/SamirMoustafa/Time-Series-Classification.git
 pip install -r requirements.txt	
 ```	
 
-## to be edited...  	
 
 
 
