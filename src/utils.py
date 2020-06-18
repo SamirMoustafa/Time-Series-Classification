@@ -24,7 +24,7 @@ DATA_PATH = './Univariate_arff/'
 one_hot_encoding = lambda x: pd.get_dummies(x).values
 inverse_one_hot_encoding = lambda y: pd.get_dummies(pd.DataFrame(y, columns=list(range(1, y.shape[1] + 1)))).idxmax(1)
 
-get_device = lambda: torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
+get_device = lambda: torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 handle_dim = lambda x, scale: np.swapaxes(scale.transform(x)[..., np.newaxis], 1, -1)
 
 
